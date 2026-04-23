@@ -34,3 +34,7 @@ node_modules/
 .claude/
 .sisyphus/
 .superpowers/
+
+# 服务器本地配置，不追踪
+conf/frps.toml
+conf/frpc.toml

@@ -16,6 +16,8 @@ jobs:
   image:
     name: Build Image from Dockerfile and binaries
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.set_tag.outputs.tag_name }}
     steps:
       # environment
       - name: Checkout
@@ -31,10 +33,13 @@ jobs:
 
       # get image tag name
       - name: Get Image Tag Name
+        id: set_tag
         run: |
           if [ x${{ github.event.inputs.tag }} == x"" ]; then
+            echo "tag_name=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
             echo "TAG_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           else
+            echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
             echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           fi
       - name: Login to DockerHub
@@ -43,22 +48,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Login to the GPR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GPR_TOKEN }}
-
       # prepare image tags
       - name: Prepare Image Tags
         run: |
           echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
           echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
-          echo "TAG_FRPC=fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS=fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPC=connecttotheimmortal/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPS=connecttotheimmortal/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
       - name: Build and push frpc
         uses: docker/build-push-action@v7
@@ -67,9 +63,7 @@ jobs:
           file: ./dockerfiles/Dockerfile-for-frpc
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
-          tags: |
-            ${{ env.TAG_FRPC }}
-            ${{ env.TAG_FRPC_GPR }}
+          tags: ${{ env.TAG_FRPC }}
 
       - name: Build and push frps
         uses: docker/build-push-action@v7
@@ -78,6 +72,38 @@ jobs:
           file: ./dockerfiles/Dockerfile-for-frps
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
-          tags: |
-            ${{ env.TAG_FRPS }}
-            ${{ env.TAG_FRPS_GPR }}
+          tags: ${{ env.TAG_FRPS }}
+
+  deploy:
+    name: Deploy frps to server via SSH
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy and restart frps container
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          script: |
+            cd /opt/frp && git pull
+            docker pull connecttotheimmortal/frps:${{ needs.image.outputs.tag_name }}
+            docker stop frps || true
+            docker rm frps || true
+            docker run -d --name frps --restart=always \
+              --network=1panel-network \
+              -v /opt/frp/conf/frps.toml:/frp/frps.toml \
+              -p 17000:17000 \
+              -p 127.0.0.1:7500:7500 \
+              -p 127.0.0.1:9000:9000 \
+              -p 127.0.0.1:9001:9001 \
+              -p 127.0.0.1:9002:9002 \
+              -p 127.0.0.1:9003:9003 \
+              -p 127.0.0.1:9004:9004 \
+              -p 127.0.0.1:9005:9005 \
+              -p 127.0.0.1:9006:9006 \
+              -p 127.0.0.1:9007:9007 \
+              -p 127.0.0.1:9008:9008 \
+              -p 127.0.0.1:9009:9009 \
+              connecttotheimmortal/frps:${{ needs.image.outputs.tag_name }} -c /frp/frps.toml

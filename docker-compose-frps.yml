@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  frps:
+    image: connecttotheimmortal/frps:latest
+    container_name: frps
+    restart: always
+    network_mode: bridge
+    ports:
+      - "7000:7000"      # 通信端口
+      - "7500:7500"      # web 管理端口
+      - "9000:9000"      # 预留端口
+    volumes:
+      - ./conf/frps.toml:/frp/frps.toml  # 本地测试用；生产部署由 CI/CD 挂载 /etc/frp/frps.toml
+    command: -c /frp/frps.toml
+    networks:
+      - 1panel-network
+
+networks:
+  1panel-network:
+    external: true
