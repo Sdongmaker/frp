@@ -7,7 +7,7 @@
             v-if="isMobile"
             class="hamburger-btn"
             @click="toggleSidebar"
-            aria-label="Toggle menu"
+            aria-label="切换菜单"
           >
             <span class="hamburger-icon">&#9776;</span>
           </button>
@@ -16,7 +16,7 @@
           </div>
           <span class="divider">/</span>
           <span class="brand-name">frp</span>
-          <span class="badge server-badge">Server</span>
+          <span class="badge server-badge">服务端</span>
         </div>
 
         <div class="header-controls">
@@ -58,7 +58,7 @@
             :class="{ active: route.path === '/' }"
             @click="closeSidebar"
           >
-            Overview
+            概览
           </router-link>
           <router-link
             to="/clients"
@@ -66,7 +66,7 @@
             :class="{ active: route.path.startsWith('/clients') }"
             @click="closeSidebar"
           >
-            Clients
+            客户端
           </router-link>
           <router-link
             to="/proxies"
@@ -78,7 +78,7 @@
             }"
             @click="closeSidebar"
           >
-            Proxies
+            代理
           </router-link>
         </nav>
       </aside>
